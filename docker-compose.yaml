@@ -1,0 +1,16 @@
+services:
+  pg17:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgresjs
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: user
+    ports:
+      - 5432:5432
+    command: >
+      postgres
+      -c log_connections=on
+      -c wal_level=logical
+      -c log_statement=all
+      -c log_min_messages=debug
+      -c log_duration=on
