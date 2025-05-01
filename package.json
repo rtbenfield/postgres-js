@@ -1,0 +1,24 @@
+{
+  "name": "@rtbenfield/postgres-js",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "",
+  "license": "MIT",
+  "author": "Tyler Benfield <tyler@benfield.dev>",
+  "keywords": [
+    "postgres",
+    "postgresql"
+  ],
+  "main": "dist/index.js",
+  "sideEffects": false,
+  "packageManager": "pnpm@10.10.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@tsconfig/strictest": "^2.0.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}
