@@ -1,9 +1,12 @@
 {
   "extends": "@tsconfig/strictest",
   "compilerOptions": {
-    "lib": ["ES2024"],
+    // DOM is needed for WebStream APIs
+    "lib": ["ES2024", "DOM"],
     "module": "ES2022",
     "target": "ES2024",
+    // exclude node types globally
+    "types": [],
     // output options
     "outDir": "dist/",
     "rootDir": "src/",
@@ -12,7 +15,8 @@
     // safety checks (extended from @tsconfig/strictest)
     "erasableSyntaxOnly": true,
     "noUnusedParameters": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "verbatimModuleSyntax": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
