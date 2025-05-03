@@ -18,8 +18,8 @@ it("peeks at the next byte without advancing", () => {
 
 it("reads a buffer of specified length", () => {
   const reader = new BinaryReader(u8(1, 2, 3, 4, 5));
-  expect(Array.from(reader.readBuffer(3))).toEqual([1, 2, 3]);
-  expect(Array.from(reader.readBuffer(2))).toEqual([4, 5]);
+  expect(reader.readBuffer(3)).toEqual(u8(1, 2, 3));
+  expect(reader.readBuffer(2)).toEqual(u8(4, 5));
   expect(reader.remaining).toBe(0);
 });
 
@@ -76,9 +76,9 @@ it("handles empty null-terminated strings", () => {
 it("rest returns the remaining buffer", () => {
   const reader = new BinaryReader(u8(1, 2, 3, 4));
   reader.readByte();
-  expect(Array.from(reader.rest)).toEqual([2, 3, 4]);
+  expect(reader.rest).toEqual(u8(2, 3, 4));
   reader.readBuffer(2);
-  expect(Array.from(reader.rest)).toEqual([4]);
+  expect(reader.rest).toEqual(u8(4));
 });
 
 it("remaining returns the correct number of bytes left", () => {
