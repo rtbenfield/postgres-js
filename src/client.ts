@@ -1,4 +1,3 @@
-import { Connection } from "./connection.js";
 import type { SocketFactory } from "./socket.js";
 
 export interface ClientInit {
@@ -18,13 +17,13 @@ export class Client {
     this.#options = options;
   }
 
-  async connect(): Promise<Connection> {
+  async connect(): Promise<void> {
     const { connection } = this.#options;
     const socket = await this.#options.socket(
       connection.hostname,
       connection.port,
     );
     await socket.connected;
-    return new Connection(socket);
+    // return new Connection(socket);
   }
 }
