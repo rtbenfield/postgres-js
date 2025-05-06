@@ -1,6 +1,6 @@
 import type { Socket } from "../socket.js";
 
-export interface DuplexStream {
+interface DuplexStream {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
 }

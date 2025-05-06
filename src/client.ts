@@ -1,6 +1,7 @@
 import { Connection } from "./connection.js";
 import { startupSequence } from "./protocol/startup.sequence.js";
 import type { SocketFactory } from "./socket.js";
+import { PostgresAlignmentStream } from "./streams.js";
 
 export interface ClientInit {
   readonly connection: ConnectionDetails;
@@ -32,7 +33,12 @@ export class Client {
     );
     await socket.connected;
 
-    const conn = new Connection(socket);
+    const conn = new Connection({
+      // pipe through the alignment stream to ensure we receive complete Postgres messages
+      // ? TODO: is this the best place to add the alignment stream?
+      readable: socket.readable.pipeThrough(new PostgresAlignmentStream()),
+      writable: socket.writable,
+    });
     await conn.send(startupSequence({ connection }));
     return conn;
   }
