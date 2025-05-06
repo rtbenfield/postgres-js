@@ -14,6 +14,7 @@
   "packageManager": "pnpm@10.10.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "coverage": "vitest run --coverage",
     "test": "vitest"
   },
   "devDependencies": {
