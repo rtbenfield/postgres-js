@@ -1,4 +1,9 @@
-import { executeSequence, type Sequence } from "./protocol/sequence.js";
+import {
+  executeSequence,
+  executeSequenceStream,
+  type Sequence,
+  type SequenceStream,
+} from "./protocol/sequence.js";
 
 interface DuplexStream {
   readonly readable: ReadableStream<Uint8Array>;
@@ -18,5 +23,9 @@ export class Connection implements AsyncDisposable {
 
   async send<T>(command: Sequence<T>): Promise<T> {
     return executeSequence(this.#stream, command);
+  }
+
+  async stream<T>(command: SequenceStream<T>): Promise<ReadableStream<T>> {
+    return executeSequenceStream(this.#stream, command);
   }
 }

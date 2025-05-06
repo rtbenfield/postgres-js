@@ -1,15 +1,23 @@
-import type { Socket } from "../socket.js";
-
 interface DuplexStream {
   readonly readable: ReadableStream<Uint8Array>;
   readonly writable: WritableStream<Uint8Array>;
 }
 
+/**
+ * Defines a sequence of frontend and backend messages that results in a
+ * single result of type `T`.
+ */
 export type Sequence<T> = AsyncGenerator<
   Uint8Array | ReadonlyArray<Uint8Array | typeof NOREPLY> | typeof SKIP,
   T,
   Uint8Array
 >;
+
+/**
+ * Defines a sequence of frontend and backend messages that results in a
+ * stream of data of type `T`.
+ */
+export type SequenceStream<T> = Sequence<TransformStream<Uint8Array, T>>;
 
 /**
  * Symbol that is yielded by a sequence to skip sending a packet and wait
@@ -124,8 +132,8 @@ export async function executeSequence<T>(
  * completes.
  */
 export async function executeSequenceStream<T>(
-  socket: Socket,
-  sequence: Sequence<TransformStream<Uint8Array, T>>,
+  socket: DuplexStream,
+  sequence: SequenceStream<T>,
 ): Promise<ReadableStream<T>> {
   // execute the sequence until it returns a TransformStream
   const transformer = await executeSequence(socket, sequence);
