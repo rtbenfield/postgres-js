@@ -1,3 +1,5 @@
+import { Connection } from "./connection.js";
+import { startupSequence } from "./protocol/startup.sequence.js";
 import type { SocketFactory } from "./socket.js";
 
 export interface ClientInit {
@@ -6,8 +8,13 @@ export interface ClientInit {
 }
 
 export interface ConnectionDetails {
+  readonly database: string;
   readonly hostname: string;
+  readonly password?: string;
   readonly port: number;
+  /** @default false */
+  readonly replication?: boolean | "database";
+  readonly username: string;
 }
 
 export class Client {
@@ -17,13 +24,16 @@ export class Client {
     this.#options = options;
   }
 
-  async connect(): Promise<void> {
+  async connect(): Promise<Connection> {
     const { connection } = this.#options;
     const socket = await this.#options.socket(
       connection.hostname,
       connection.port,
     );
     await socket.connected;
-    // return new Connection(socket);
+
+    const conn = new Connection(socket);
+    await conn.send(startupSequence({ connection }));
+    return conn;
   }
 }

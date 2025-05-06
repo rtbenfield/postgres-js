@@ -1,0 +1,193 @@
+import type { Socket } from "../socket.js";
+
+export interface DuplexStream {
+  readonly readable: ReadableStream<Uint8Array>;
+  readonly writable: WritableStream<Uint8Array>;
+}
+
+export type Sequence<T> = AsyncGenerator<
+  Uint8Array | ReadonlyArray<Uint8Array | typeof NOREPLY> | typeof SKIP,
+  T,
+  Uint8Array
+>;
+
+/**
+ * Symbol that is yielded by a sequence to skip sending a packet and wait
+ * for the next inbound packet instead.
+ */
+export const SKIP = Symbol("skip");
+
+/**
+ * Symbol that is yielded by a sequence to skip receiving a packet and proceed
+ * with the sequence instead. This is with `executeSequenceStream` to push the
+ * next packet into the `TransformStream` returned by the sequence.
+ */
+export const NOREPLY = Symbol("noreply");
+
+/**
+ * Invokes a sequence and returns the result.
+ *
+ * Sequences may relay a series of messages to the database server and output
+ * a single result. This function handles relaying messages between the database
+ * and the sequence until the sequence completes.
+ *
+ * The socket readable and writable streams will be locked until the sequence
+ * completes.
+ */
+export async function executeSequence<T>(
+  socket: DuplexStream,
+  sequence: Sequence<T>,
+): Promise<T> {
+  const { readable, writable } = socket;
+  const writer = writable.getWriter();
+  try {
+    const reader = readable.getReader();
+    try {
+      // get the first packet
+      let outbox = await sequence.next();
+      while (!outbox.done) {
+        let noreply = false;
+
+        if (outbox.value instanceof Uint8Array) {
+          // send the packet to the database
+          const firstByte = String.fromCharCode(outbox.value[0]!);
+          // console.debug(`--> [${firstByte}]`, {
+          //   buffer: Buffer.from(outbox.value),
+          // });
+          await writer.write(outbox.value);
+        } else if (outbox.value !== SKIP) {
+          // outbox.value must be ReadonlyArray<Uint8Array>
+          // Array.isArray turns the type into an `any` 😞
+
+          // debug only
+          for (const message of outbox.value) {
+            if (message === NOREPLY) {
+              noreply = true;
+            } else {
+              const firstByte = String.fromCharCode(message[0]!);
+              // console.debug(`--> [${firstByte}]`, {
+              //   buffer: Buffer.from(message),
+              // });
+            }
+          }
+
+          // we can write all of the messages in one shot for efficiency
+          await writer.write(
+            new Uint8Array(
+              combineArrayBuffers(...outbox.value.filter((x) => x !== NOREPLY)),
+            ),
+          );
+
+          // if any NOREPLY was included in the array, we skip the next inbound message
+          noreply = outbox.value.some((x) => x === NOREPLY);
+        }
+
+        if (noreply) {
+          // continue in the sequence
+          // console.debug("--- noreply ---");
+          outbox = await sequence.next();
+        } else {
+          // receive the next inbound message before continuing in the sequence
+          // logger.debug("...waiting for reply...");
+          const inbox = await reader.read();
+          if (inbox.done) {
+            throw new Error("Connection closed unexpectedly");
+          }
+          const firstByte = String.fromCharCode(inbox.value[0]!);
+          // console.debug(`<-- [${firstByte}]`, {
+          //   buffer: Buffer.from(inbox.value),
+          // });
+          // pass the repy message back into the sequence
+          outbox = await sequence.next(inbox.value);
+        }
+      }
+      return outbox.value;
+    } finally {
+      reader.releaseLock();
+    }
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+/**
+ * Invokes a sequence and returns a ReadableStream of the data received from
+ * the database server.
+ *
+ * Sequences may relay a series of messages until they begin receiving a feed
+ * of data from the database server which is beneficial to pass to consumers.
+ * This allows the consumer to control backpressure and optimize memory usage
+ * while consuming the stream. The sequence handles the raw message parsing
+ * and yields `T` objects to the consumer.
+ *
+ * The socket readable and writable streams will be locked until the sequence
+ * completes.
+ */
+export async function executeSequenceStream<T>(
+  socket: Socket,
+  sequence: Sequence<TransformStream<Uint8Array, T>>,
+): Promise<ReadableStream<T>> {
+  // execute the sequence until it returns a TransformStream
+  const transformer = await executeSequence(socket, sequence);
+
+  const { readable, writable } = socket;
+  const writer = writable.getWriter();
+  try {
+    const reader = readable.getReader();
+    try {
+      // create a ReadableStream wrapping the sequence's TransformStream
+      // pipe the socket's readable into the TransformStream
+      return new ReadableStream<Uint8Array>({
+        cancel() {
+          // console.debug("------- sequence complete");
+          writer.releaseLock();
+          reader.releaseLock();
+        },
+        async pull(controller) {
+          const nextResult = await reader.read();
+          if (nextResult.done) {
+            throw new Error(`connection was closed unexpectedly`);
+          }
+          const firstByte = String.fromCharCode(nextResult.value[0]!);
+          // console.debug(`<-- [${firstByte}]`, {
+          //   buffer: Buffer.from(nextResult.value),
+          // });
+          controller.enqueue(nextResult.value);
+        },
+      }).pipeThrough(transformer);
+    } catch (e) {
+      reader.releaseLock();
+      throw e;
+    }
+  } catch (e) {
+    writer.releaseLock();
+    throw e;
+  }
+}
+
+/**
+ * Combines an array of ArrayBuffer objects into a single ArrayBuffer.
+ * Note that this method is not yet zero-copy.
+ * Unfortunately, there is no zero-copy support in ArrayBufer yet.
+ * @param buffers An array of ArrayBuffer or ArrayBufferView objects to combine.
+ * @returns A single ArrayBuffer concatenating all the input buffers.
+ */
+function combineArrayBuffers(
+  ...buffers: ReadonlyArray<ArrayBufferLike | ArrayBufferView>
+): ArrayBuffer {
+  const totalLength = buffers.reduce(
+    (sum, buffer) => sum + buffer.byteLength,
+    0,
+  );
+  const combinedBuffer = new ArrayBuffer(totalLength);
+  const combinedView = new Uint8Array(combinedBuffer);
+  let offset = 0;
+  for (const buffer of buffers) {
+    const view = new Uint8Array(
+      ArrayBuffer.isView(buffer) ? buffer.buffer : buffer,
+    );
+    combinedView.set(view, offset);
+    offset += view.length;
+  }
+  return combinedBuffer;
+}
