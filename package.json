@@ -4,14 +4,14 @@
   "type": "module",
   "description": "",
   "license": "MIT",
-  "author": "Tyler Benfield <tyler@benfield.dev>",
+  "author": "Tyler Benfield <tyler@tylerbenfield.dev>",
   "keywords": [
     "postgres",
     "postgresql"
   ],
   "main": "dist/index.js",
   "sideEffects": false,
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.16.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "coverage": "vitest run --coverage",
@@ -19,9 +19,9 @@
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.5",
-    "@types/node": "^22.15.29",
-    "@vitest/coverage-v8": "^3.1.4",
-    "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "@types/node": "^22.17.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }
